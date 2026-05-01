@@ -30,8 +30,15 @@ Use this before Adam tests on the flight landing build.
    - Delete bottle and confirm it disappears.
 6. Insights:
    - Add demo cellar.
-   - Confirm bottle count, average rating, varietals, regions, and style mix render.
-7. Settings:
+   - Confirm bottle count, average rating, cellar value, drink-now count, varietals, regions, and style mix render.
+   - Confirm Private sommelier suggests a bottle and food pairing.
+7. Detail intelligence:
+   - Open a bottle with vintage and varietal.
+   - Confirm Sommelier note shows Hold / Drink now / Past peak guidance.
+   - Confirm food pairing chips appear.
+   - Add purchase price and source.
+   - Use Share tasting note and confirm native share sheet opens.
+8. Settings:
    - Export backup and confirm share sheet opens.
    - Import the exported JSON if available.
    - Replay onboarding.

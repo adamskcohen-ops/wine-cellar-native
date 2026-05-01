@@ -36,7 +36,9 @@ Use this before Adam tests on the flight landing build.
    - Open a bottle with vintage and varietal.
    - Confirm Sommelier note shows Hold / Drink now / Past peak guidance.
    - Confirm food pairing chips appear.
-   - Add purchase price and source.
+   - Add price paid, market value, purchase source, purchase date, rack/bin location, and manual drink-from/drink-by years.
+   - Confirm collection cards show drink status and location.
+   - Filter by wishlist and drink now.
    - Use Share tasting note and confirm native share sheet opens.
 8. Settings:
    - Export backup and confirm share sheet opens.

@@ -1,0 +1,391 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WineStatus {
+  cellar
+  consumed
+  wishlist
+}
+
+enum SyncOperation {
+  upsert
+  delete
+}
+
+enum SubscriptionTier {
+  free
+  premium
+  collector
+}
+
+enum CellarRole {
+  owner
+  admin
+  editor
+  viewer
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+enum DeliveryStatus {
+  ordered
+  shipped
+  delivered
+  cancelled
+}
+
+enum NotificationKind {
+  drink_window
+  valuation_change
+  delivery_update
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String?  @map("display_name")
+  tier         SubscriptionTier @default(free)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  refreshTokens RefreshToken[]
+  ownedCellars  Cellar[] @relation("CellarOwner")
+  memberships   CellarMember[]
+  bottles       CellarBottle[]
+  wishlists     Wishlist[]
+  syncEvents    SyncEvent[]
+  deviceTokens  DeviceToken[]
+  notifications Notification[]
+  invitesSent   CellarInvite[] @relation("InviteSender")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  expiresAt  DateTime @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  replacedBy String?  @map("replaced_by") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Cellar {
+  id          String   @id @default(uuid()) @db.Uuid
+  ownerId     String   @map("owner_id") @db.Uuid
+  name        String
+  description String?
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  owner       User @relation("CellarOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     CellarMember[]
+  invites     CellarInvite[]
+  locations   StorageLocation[]
+  bottles     CellarBottle[]
+  wishlists   Wishlist[]
+  deliveries  Delivery[]
+
+  @@index([ownerId])
+  @@map("cellars")
+}
+
+model CellarMember {
+  id        String @id @default(uuid()) @db.Uuid
+  cellarId  String @map("cellar_id") @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  role      CellarRole @default(viewer)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cellar Cellar @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([cellarId, userId])
+  @@index([userId])
+  @@map("cellar_members")
+}
+
+model CellarInvite {
+  id        String @id @default(uuid()) @db.Uuid
+  cellarId  String @map("cellar_id") @db.Uuid
+  email     String
+  role      CellarRole @default(viewer)
+  tokenHash String @unique @map("token_hash")
+  status    InviteStatus @default(pending)
+  invitedByUserId String @map("invited_by_user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cellar Cellar @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  invitedBy User @relation("InviteSender", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([cellarId])
+  @@index([email])
+  @@map("cellar_invites")
+}
+
+model StorageLocation {
+  id        String @id @default(uuid()) @db.Uuid
+  cellarId  String @map("cellar_id") @db.Uuid
+  name      String
+  kind      String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cellar Cellar @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  bottles CellarBottle[]
+  deliveries Delivery[]
+
+  @@index([cellarId])
+  @@map("storage_locations")
+}
+
+model Wine {
+  id                String   @id @default(uuid()) @db.Uuid
+  normalizedKey     String   @unique @map("normalized_key")
+  producer          String?
+  name              String
+  vintage           Int?
+  type              String?
+  varietal          String?
+  country           String?
+  region            String?
+  subRegion         String? @map("sub_region")
+  appellation       String?
+  designation       String?
+  criticScore       Float? @map("critic_score")
+  marketValueMin    Decimal? @map("market_value_min") @db.Decimal(10, 2)
+  marketValueAvg    Decimal? @map("market_value_avg") @db.Decimal(10, 2)
+  marketValueMax    Decimal? @map("market_value_max") @db.Decimal(10, 2)
+  drinkStart        Int? @map("drink_start")
+  drinkEnd          Int? @map("drink_end")
+  tastingNotes      String? @map("tasting_notes")
+  foodPairings      String[] @default([]) @map("food_pairings")
+  rawSource         Json? @map("raw_source")
+  source            String? @default("wine-searcher")
+  lastValuationAt   DateTime? @map("last_valuation_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  bottles CellarBottle[]
+  wishlistItems WishlistItem[]
+  deliveryItems DeliveryItem[]
+  lookups WineLookupCache[]
+  valuationSnapshots ValuationSnapshot[]
+
+  @@index([name])
+  @@index([producer])
+  @@index([country, region])
+  @@map("wines")
+}
+
+model CellarBottle {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  cellarId           String?  @map("cellar_id") @db.Uuid
+  wineId             String?  @map("wine_id") @db.Uuid
+  locationId         String?  @map("location_id") @db.Uuid
+  clientId           String?  @map("client_id")
+  status             WineStatus @default(cellar)
+  quantity           Int      @default(1)
+  bottleSize         String?  @default("750ml") @map("bottle_size")
+  pricePaid          Decimal? @map("price_paid") @db.Decimal(10, 2)
+  marketValue        Decimal? @map("market_value") @db.Decimal(10, 2)
+  purchaseDate       DateTime? @map("purchase_date")
+  purchaseSource     String? @map("purchase_source")
+  storageLocation    String? @map("storage_location")
+  rack               String?
+  bin                String?
+  personalRating     Int? @map("personal_rating")
+  personalNotes      String? @map("personal_notes")
+  dateConsumed       DateTime? @map("date_consumed")
+  imageUri           String? @map("image_uri")
+  localPayload       Json? @map("local_payload")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cellar Cellar? @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  wine Wine? @relation(fields: [wineId], references: [id], onDelete: SetNull)
+  location StorageLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, clientId])
+  @@index([cellarId, status])
+  @@index([userId, status])
+  @@index([updatedAt])
+  @@map("cellar_bottles")
+}
+
+model Wishlist {
+  id        String @id @default(uuid()) @db.Uuid
+  cellarId  String? @map("cellar_id") @db.Uuid
+  ownerId   String @map("owner_id") @db.Uuid
+  name      String
+  isShared  Boolean @default(false) @map("is_shared")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cellar Cellar? @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items WishlistItem[]
+
+  @@index([ownerId])
+  @@index([cellarId])
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         String @id @default(uuid()) @db.Uuid
+  wishlistId String @map("wishlist_id") @db.Uuid
+  wineId     String? @map("wine_id") @db.Uuid
+  notes      String?
+  targetPrice Decimal? @map("target_price") @db.Decimal(10, 2)
+  priority   Int?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  wishlist Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  wine Wine? @relation(fields: [wineId], references: [id], onDelete: SetNull)
+
+  @@index([wishlistId])
+  @@map("wishlist_items")
+}
+
+model Delivery {
+  id          String @id @default(uuid()) @db.Uuid
+  cellarId    String @map("cellar_id") @db.Uuid
+  locationId  String? @map("location_id") @db.Uuid
+  merchant    String?
+  orderNumber String? @map("order_number")
+  trackingNumber String? @map("tracking_number")
+  status      DeliveryStatus @default(ordered)
+  expectedDate DateTime? @map("expected_date")
+  deliveredAt DateTime? @map("delivered_at")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  cellar Cellar @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  location StorageLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  items DeliveryItem[]
+
+  @@index([cellarId, status])
+  @@map("deliveries")
+}
+
+model DeliveryItem {
+  id          String @id @default(uuid()) @db.Uuid
+  deliveryId  String @map("delivery_id") @db.Uuid
+  wineId      String? @map("wine_id") @db.Uuid
+  quantity    Int @default(1)
+  pricePaid   Decimal? @map("price_paid") @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  wine Wine? @relation(fields: [wineId], references: [id], onDelete: SetNull)
+
+  @@index([deliveryId])
+  @@map("delivery_items")
+}
+
+model ValuationSnapshot {
+  id        String @id @default(uuid()) @db.Uuid
+  wineId    String @map("wine_id") @db.Uuid
+  source    String @default("wine-searcher")
+  valueMin  Decimal? @map("value_min") @db.Decimal(10, 2)
+  valueAvg  Decimal? @map("value_avg") @db.Decimal(10, 2)
+  valueMax  Decimal? @map("value_max") @db.Decimal(10, 2)
+  rawSource Json? @map("raw_source")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  wine Wine @relation(fields: [wineId], references: [id], onDelete: Cascade)
+
+  @@index([wineId, createdAt])
+  @@map("valuation_snapshots")
+}
+
+model WineLookupCache {
+  id          String   @id @default(uuid()) @db.Uuid
+  queryHash   String   @unique @map("query_hash")
+  query       String
+  wineId      String?  @map("wine_id") @db.Uuid
+  response    Json
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  wine        Wine?    @relation(fields: [wineId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@map("wine_lookup_cache")
+}
+
+model DeviceToken {
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  token     String @unique
+  platform  String
+  createdAt DateTime @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+model Notification {
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  kind      NotificationKind
+  title     String
+  body      String
+  data      Json?
+  scheduledFor DateTime? @map("scheduled_for")
+  sentAt    DateTime? @map("sent_at")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([scheduledFor])
+  @@map("notifications")
+}
+
+model SyncEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  operation   SyncOperation
+  payload     Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("sync_events")
+}

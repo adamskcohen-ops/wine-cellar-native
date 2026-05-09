@@ -27,8 +27,7 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "00adam.cohen@gmail.com",
-        "ascAppId": "FILL_IN_AFTER_FIRST_BUILD"
+        "appleId": "00adam.cohen@gmail.com"
       }
     }
   }

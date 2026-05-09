@@ -19,11 +19,15 @@
         "NSCameraUsageDescription": "Cellar uses the camera to capture wine labels.",
         "NSPhotoLibraryUsageDescription": "Cellar imports label photos from your camera roll.",
         "NSPhotoLibraryAddUsageDescription": "Cellar can export backup files for sharing."
-      }
+      },
+      "icon": "./assets/icon.png"
     },
     "android": {
       "package": "com.adamskcohen.winecellar",
-      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"],
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#3a0c18"

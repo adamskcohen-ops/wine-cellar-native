@@ -43,21 +43,8 @@ export async function signup(input: { email: string; password: string; displayNa
   if (existing) throw new ApiError(409, 'Email is already registered', 'email_taken');
 
   const passwordHash = await bcrypt.hash(input.password, 12);
-  const { user, cellar } = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({ data: { email, passwordHash, displayName: input.displayName } });
-    const cellar = await tx.cellar.create({
-      data: {
-        ownerId: user.id,
-        name: 'My Cellar',
-        isDefault: true,
-        members: { create: { userId: user.id, role: 'owner' } },
-        locations: { create: { name: 'Home cellar', kind: 'home' } },
-        wishlists: { create: { ownerId: user.id, name: 'Wishlist', isShared: true } },
-      },
-    });
-    return { user, cellar };
-  });
-  return { user: publicUser(user), defaultCellarId: cellar.id, accessToken: signAccessToken({ sub: user.id, email }), refreshToken: signRefreshToken({ sub: user.id, email }) };
+  const user = await prisma.user.create({ data: { email, passwordHash, displayName: input.displayName } });
+  return { user: publicUser(user), accessToken: signAccessToken({ sub: user.id, email }), refreshToken: signRefreshToken({ sub: user.id, email }) };
 }
 
 export async function login(input: { email: string; password: string }) {

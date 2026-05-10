@@ -6,9 +6,9 @@ Railway should deploy only this folder, not the Expo app at the repo root.
 
 ## Config included in this repo
 
-`backend/railway.json` tells Railway to use Railpack, run `npm run build`, start with `npm run start:prod`, and health-check `/health`.
+`backend/railway.json` tells Railway to use Railpack, run `npm run build`, start with `node dist/src/server.js`, and health-check `/health`.
 
-`npm run start:prod` runs `prisma migrate deploy` before starting the API, so checked-in migrations are applied on deploy.
+In production, the Node server runs `prisma migrate deploy` before it starts listening, then serves the API directly from the Node process. That avoids Railway/NPM SIGTERM handling issues while still applying checked-in migrations on deploy.
 
 ## Required Railway service settings
 

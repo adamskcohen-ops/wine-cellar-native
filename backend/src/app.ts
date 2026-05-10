@@ -23,7 +23,7 @@ export function createApp() {
   app.use(morgan('tiny'));
   app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
 
-  app.get('/health', (_req, res) => res.json({ ok: true, service: 'wine-cellar-api', authMode: 'stateless-refresh-v2' }));
+  app.get('/health', (_req, res) => res.json({ ok: true, service: 'wine-cellar-api', authMode: 'stateless-refresh-v3' }));
   app.use('/auth', authRoutes);
   app.use('/cellars', cellarsRoutes);
   app.use('/cellar', cellarRoutes);

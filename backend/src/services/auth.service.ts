@@ -8,6 +8,23 @@ const ACCESS_AUDIENCE = 'wine-cellar-api';
 const REFRESH_AUDIENCE = 'wine-cellar-refresh';
 
 type AccessPayload = { sub: string; email: string };
+type JwtExpiresIn = NonNullable<SignOptions['expiresIn']>;
+
+function normalizeJwtExpiresIn(value: string | number | undefined, fallback: JwtExpiresIn): JwtExpiresIn {
+  if (typeof value === 'number') return value;
+  const raw = value?.trim();
+  if (!raw) return fallback;
+  const unquoted = raw.replace(/^['\"]|['\"]$/g, '').trim();
+  if (/^\d+$/.test(unquoted)) return Number(unquoted);
+  if (/^\d+(\.\d+)?\s*(ms|millisecond|milliseconds|s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|week|weeks|y|yr|yrs|year|years)$/i.test(unquoted)) {
+    return unquoted as JwtExpiresIn;
+  }
+  console.warn('[auth:config] Invalid ACCESS_TOKEN_TTL, falling back to default', { value });
+  return fallback;
+}
+
+const ACCESS_TOKEN_EXPIRES_IN = normalizeJwtExpiresIn(env.ACCESS_TOKEN_TTL, '15m');
+const REFRESH_TOKEN_EXPIRES_IN = normalizeJwtExpiresIn(`${env.REFRESH_TOKEN_TTL_DAYS}d`, '30d');
 
 function logAuthFailure(stage: string, err: unknown, email?: string) {
   console.error('[auth:error]', {
@@ -23,7 +40,7 @@ function logAuthFailure(stage: string, err: unknown, email?: string) {
 
 export function signAccessToken(payload: AccessPayload) {
   const options: SignOptions = {
-    expiresIn: env.ACCESS_TOKEN_TTL as SignOptions['expiresIn'],
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
     audience: ACCESS_AUDIENCE,
   };
   return jwt.sign(payload, env.JWT_ACCESS_SECRET, options);
@@ -35,7 +52,7 @@ export function verifyAccessToken(token: string) {
 
 function signRefreshToken(payload: AccessPayload) {
   const options: SignOptions = {
-    expiresIn: `${env.REFRESH_TOKEN_TTL_DAYS}d` as SignOptions['expiresIn'],
+    expiresIn: REFRESH_TOKEN_EXPIRES_IN,
     audience: REFRESH_AUDIENCE,
   };
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, options);
